@@ -902,6 +902,9 @@ object SparkContext {
       rdd: RDD[(K, V)]) =
     new OrderedRDDFunctions[K, V, (K, V)](rdd)
 
+  implicit def rddPartitionFuctions[K: ClassManifest](rdd: RDD[K]) =
+    new RDDPartitionFunctions(rdd)
+
   implicit def doubleRDDToDoubleRDDFunctions(rdd: RDD[Double]) = new DoubleRDDFunctions(rdd)
 
   implicit def numericRDDToDoubleRDDFunctions[T](rdd: RDD[T])(implicit num: Numeric[T]) =
