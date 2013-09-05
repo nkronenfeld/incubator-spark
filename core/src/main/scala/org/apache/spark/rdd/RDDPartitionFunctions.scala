@@ -40,10 +40,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
                                           +" of an RDD with only "
                                           +numPartitions+" partitions")
     } else {
-      self.mapPartitionsWithIndex((index, i) => 
-        if (n == index) i
-        else List[T]().iterator
-      )
+      PartitionPruningRDD.create(self, (partitionIndex => n == partitionIndex))
     }
   }
 
@@ -178,8 +175,14 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 	  List((p._1, start ++ end))
 	}
       })
-    .map(p => (p._1._1, p._2))	// Key it all by the subset to which it should be prepended
+    // Key each element to the subset to which it should be prepended, and key 
+    // the item to be prepended by its order among all elements to be prepended 
+    //to the same partition.
+    .map(p => (p._1._1, (p._1._2, p._2)))
+    // Collect all additions to a given partition
     .groupByKey(1)
+    // Sort the additions to each partition, and eliminate the key we used to do so
+    .map(p => (p._1, p._2.sortBy(_._1).map(_._2)))
     .collect().toMap
 
     val intraSplitPartitionedSets =
