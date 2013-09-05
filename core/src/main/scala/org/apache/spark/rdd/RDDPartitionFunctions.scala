@@ -56,7 +56,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
    *                 the partition to which to prepend the information, the
    *                 values, the information to prepend.
    */
-  def prepend (prefixes: Map[Int, List[T]]): RDD[T] = {
+  def prepend (prefixes: Map[Int, Seq[T]]): RDD[T] = {
     val beforeFirst =
       prefixes.keys.filter(_ < 0).toList.sortBy(n =>
 	n
@@ -92,7 +92,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
    *                 the partition to which to append the information, the
    *                 values, the information to append.
    */
-  def append (suffixes: Map[Int, List[T]]): RDD[T] = {
+  def append (suffixes: Map[Int, Seq[T]]): RDD[T] = {
     val beforeFirst =
       suffixes.keys.filter(_ < 0).toList.sortBy(n =>
 	n
@@ -137,26 +137,24 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
    * input RDD.  It is assumed that this input order is meaningful -
    * otherwise, why would one want to do this?
    */
-  def sliding (maxSize: Int, minSize: Int):
-  RDD[List[Option[T]]] = {
+  def sliding (size: Int): RDD[List[T]] = {
     // Get all windows of maxSize within each partition
-    val intraSplitSets:RDD[List[Option[T]]] =
-      self.mapPartitions(_.sliding(maxSize)).map(
-	_.toList.map(t => Some(t)))
+    val intraSplitSets:RDD[List[T]] =
+      self.mapPartitions(_.sliding(size)).map(_.toList)
 
-    // Get all windows of maxSize that cross partition boundaries
+    // Get all windows of size that cross partition boundaries
     val interSplitSets =
       self.mapPartitionsWithIndex((index, i) => {
 	val dupl:(Iterator[T], Iterator[T]) = i.duplicate
-	val firstN:List[T] = dupl._1.take(maxSize-1).toList
+	val firstN:List[T] = dupl._1.take(size-1).toList
 	val lastN:List[T] = dupl._2.scanRight(List[T]())((elt, list) => 
-	  if (list.size >= maxSize-1) list else List(elt) ++ list
+	  if (list.size >= size-1) list else List(elt) ++ list
 	).next
 	val firstSubs:List[((Int, Int), Map[Int, List[T]])] =
-	  Range(1, maxSize).map(n =>
+	  Range(1, size).map(n =>
 	    ((index-1, n), Map(1 -> firstN.slice(0, n)))).toList
 	val lastSubs:List[((Int, Int), Map[Int, List[T]])] =
-	    Range(1, maxSize).map(n =>
+	    Range(1, size).map(n =>
 	      ((index, n), Map(0 -> lastN.slice(n-1, lastN.size)))).toList
 
 	(firstSubs ++ lastSubs).iterator
@@ -165,28 +163,24 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 	val subLists:Map[Int, List[T]] = p._2.reduce(_ ++ _)
 	val numElts = subLists.values.map(list => list.size).fold(0)(_+_)
 
-	if (numElts < minSize) List()
+	if (numElts < size) List()
 	else {
-	  val missing:Option[T] = None
 	  // Stuff from previous partition
-	  val start:List[Option[T]] =
-	    if (subLists.contains(0)) subLists(0).map(t => Some(t))
-	    else Range(0, maxSize-whichCross).map(n => missing).toList
+	  val start:List[T] =
+	    if (subLists.contains(0)) subLists(0)
+            else List[T]()
 	  // Stuff from next partition
-	  val end:List[Option[T]] =
-	      if (subLists.contains(1)) subLists(1).map(t => Some(t))
-	      else Range(0, whichCross).map(n => missing).toList
+	  val end:List[T] =
+	      if (subLists.contains(1)) subLists(1)
+	      else List[T]()
 
 	  // Combine them, and 
 	  List((p._1, start ++ end))
 	}
-      }).sortByKey(true, 1).map(p => 
-	// Sort so everything is in order
-	(p._1._1, p._2)
-      ).groupByKey(1).map(p =>
-	// Key it all by the subset to which it should be prepended
-	(p._1, p._2.toList)
-      ).collect().toMap
+      })
+    .map(p => (p._1._1, p._2))	// Key it all by the subset to which it should be prepended
+    .groupByKey(1)
+    .collect().toMap
 
     val intraSplitPartitionedSets =
       new RDDPartitionFunctions(intraSplitSets)
