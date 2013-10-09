@@ -197,7 +197,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
   /**
    * Take an RDD, and index its records
    */
-  def index (): RDD[(Long, T)] = {
+  def zipWithIndex (): RDD[(T, Long)] = {
     // We work exclusively with immutable indexed sequences in this method; the
     // default seems to be from scala.collection
     import scala.collection.immutable.IndexedSeq
@@ -243,7 +243,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
       val previousRecords = broadcastPreviousRecordsPerPartition.value(p._1._1)
       val indexInPartition = p._1._2
       val record = p._2
-      (previousRecords + indexInPartition, record)
+      (record, previousRecords + indexInPartition)
     })
   }
 }

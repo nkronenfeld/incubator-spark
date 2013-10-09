@@ -150,8 +150,8 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
     val result = data.index().collect()
     assert(8 == result.size)
     Range(0, 8).foreach(n => {
-      assert(n.toLong == result(n)._1)
-      assert(n == result(n)._2)
+      assert(n == result(n)._1)
+      assert(n.toLong == result(n)._2)
     })
   }
 }
