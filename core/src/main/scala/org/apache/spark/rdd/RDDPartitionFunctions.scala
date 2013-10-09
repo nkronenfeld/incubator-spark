@@ -120,15 +120,8 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 
   /**
    * Take an RDD, and transform it into sets of adjacent records.
-   * Each record will contain maxSize entries, though up to
-   * (maxSize-minSize) of them may be None.  These will be the first
-   * and last few sets of the dataset, and the use of None is so that
-   * the user can distinguish the first from the last.  For instance,
-   * with an input RDD of the alphabet ("a", "b", ... "z"), and sets
-   * of from 2-3 elements, the first element returned will be (None,
-   * Some("a"), Some("b")), then (Some("a"), Some("b"), Some("c")),
-   * etc, up to (Some("x"), Some("y"), Some("z")), and finally,
-   * (Some("y"), Some("z"), None) 
+   * Each output record will contain <code>size</code> adjacent 
+   * input records.
    *
    * The order of the output RDD is the natural order derived from the
    * input RDD.  It is assumed that this input order is meaningful -
