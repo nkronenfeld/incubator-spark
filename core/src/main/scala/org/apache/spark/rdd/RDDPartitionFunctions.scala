@@ -56,20 +56,20 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
   def prepend (prefixes: Map[Int, Seq[T]]): RDD[T] = {
     val beforeFirst =
       prefixes.keys.filter(_ < 0).toList.sortBy(n =>
-	n
+        n
       ).flatMap(n => prefixes(n));
     val afterLast =
       prefixes.keys.filter(_ >= self.partitions.size).toList.sortBy(n =>
-	n
+        n
       ).flatMap(n => prefixes(n));
 
     val broadcastPrefixes = self.context.broadcast(prefixes);
 
     var result = self.mapPartitionsWithIndex((index, i) => {
       if (broadcastPrefixes.value.contains(index))
-	broadcastPrefixes.value(index).iterator ++ i
+        broadcastPrefixes.value(index).iterator ++ i
       else
-	i
+        i
     })
 
     if (!beforeFirst.isEmpty)
@@ -92,20 +92,20 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
   def append (suffixes: Map[Int, Seq[T]]): RDD[T] = {
     val beforeFirst =
       suffixes.keys.filter(_ < 0).toList.sortBy(n =>
-	n
+        n
       ).flatMap(n => suffixes(n));
     val afterLast =
       suffixes.keys.filter(_ >= self.partitions.size).toList.sortBy(n =>
-	n
+        n
       ).flatMap(n => suffixes(n));
 
     val broadcastSuffixes = self.context.broadcast(suffixes);
 
     var result = self.mapPartitionsWithIndex((index, i) => {
       if (broadcastSuffixes.value.contains(index))
-	i ++ broadcastSuffixes.value(index).iterator
+        i ++ broadcastSuffixes.value(index).iterator
       else
-	i
+        i
     })
 
     if (!beforeFirst.isEmpty)
@@ -142,38 +142,38 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
     // Get all windows of size that cross partition boundaries
     val interSplitSets =
       self.mapPartitionsWithIndex((index, i) => {
-	val dupl:(Iterator[T], Iterator[T]) = i.duplicate
-	val firstN:List[T] = dupl._1.take(size-1).toList
-	val lastN:List[T] = dupl._2.scanRight(List[T]())((elt, list) => 
-	  if (list.size >= size-1) list else List(elt) ++ list
-	).next
-	val firstSubs:List[((Int, Int), Map[Int, List[T]])] =
-	  Range(1, size).map(n =>
-	    ((index-1, n), Map(1 -> firstN.slice(0, n)))).toList
-	val lastSubs:List[((Int, Int), Map[Int, List[T]])] =
-	    Range(1, size).map(n =>
-	      ((index, n), Map(0 -> lastN.slice(n-1, lastN.size)))).toList
+        val dupl:(Iterator[T], Iterator[T]) = i.duplicate
+        val firstN:List[T] = dupl._1.take(size-1).toList
+        val lastN:List[T] = dupl._2.scanRight(List[T]())((elt, list) => 
+          if (list.size >= size-1) list else List(elt) ++ list
+        ).next
+        val firstSubs:List[((Int, Int), Map[Int, List[T]])] =
+          Range(1, size).map(n =>
+            ((index-1, n), Map(1 -> firstN.slice(0, n)))).toList
+        val lastSubs:List[((Int, Int), Map[Int, List[T]])] =
+            Range(1, size).map(n =>
+              ((index, n), Map(0 -> lastN.slice(n-1, lastN.size)))).toList
 
-	(firstSubs ++ lastSubs).iterator
+        (firstSubs ++ lastSubs).iterator
       }).groupByKey(1).flatMap(p => {
-	val whichCross = p._1._2
-	val subLists:Map[Int, List[T]] = p._2.reduce(_ ++ _)
-	val numElts = subLists.values.map(list => list.size).fold(0)(_+_)
+        val whichCross = p._1._2
+        val subLists:Map[Int, List[T]] = p._2.reduce(_ ++ _)
+        val numElts = subLists.values.map(list => list.size).fold(0)(_+_)
 
-	if (numElts < size) List()
-	else {
-	  // Stuff from previous partition
-	  val start:List[T] =
-	    if (subLists.contains(0)) subLists(0)
+        if (numElts < size) List()
+        else {
+          // Stuff from previous partition
+          val start:List[T] =
+            if (subLists.contains(0)) subLists(0)
             else List[T]()
-	  // Stuff from next partition
-	  val end:List[T] =
-	      if (subLists.contains(1)) subLists(1)
-	      else List[T]()
+          // Stuff from next partition
+          val end:List[T] =
+              if (subLists.contains(1)) subLists(1)
+              else List[T]()
 
-	  // Combine them, and 
-	  List((p._1, start ++ end))
-	}
+          // Combine them, and 
+          List((p._1, start ++ end))
+        }
       })
     // Key each element to the subset to which it should be prepended, and key 
     // the item to be prepended by its order among all elements to be prepended 
@@ -206,9 +206,9 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
     val partitionIndexedData = self.mapPartitionsWithIndex((partitionIndex, i) => {
       var recordIndex = 0L
       i.map(record => {
-	val thisRecordIndex = recordIndex
-	recordIndex = recordIndex + 1L
-	((partitionIndex, thisRecordIndex), record)
+        val thisRecordIndex = recordIndex
+        recordIndex = recordIndex + 1L
+        ((partitionIndex, thisRecordIndex), record)
       })
     })
     partitionIndexedData.cache()
@@ -219,18 +219,18 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
       Range(0, partition+1).map(n => if (n == partition) 1L else 0L)
     }).reduce((a, b) => {
       def addArrays (a: IndexedSeq[Long], b:IndexedSeq[Long]): IndexedSeq[Long] = {
-	val maxIdx = a.size.max(b.size)
-	for (idx <- Range(0, maxIdx)) yield
-	  (if (idx < a.size) a(idx) else 0) + (if (idx < b.size) b(idx) else 0)
+        val maxIdx = a.size.max(b.size)
+        for (idx <- Range(0, maxIdx)) yield
+          (if (idx < a.size) a(idx) else 0) + (if (idx < b.size) b(idx) else 0)
       }
       addArrays(a, b)
     })
     // Now get the number of previous records to each partition
     val previousRecordsByPartition:Seq[Long] =
       Range(0, recordsPerPartition.size).map(partition =>
-	Range(0, partition).map(s1 =>
-	  recordsPerPartition(s1)
-	)
+        Range(0, partition).map(s1 =>
+          recordsPerPartition(s1)
+        )
       ).map(_ ++ List(0L)).map(_.reduce(_+_))
 
     // broadcast that so everyone can use it
