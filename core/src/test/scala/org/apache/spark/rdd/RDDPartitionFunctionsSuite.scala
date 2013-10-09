@@ -145,9 +145,9 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
     assert(List(5, 6, 7) == result(5))
   }
 
-  test("index") {
+  test("zipWithIndex") {
     val data = sc.makeRDD(Range(0, 8), 2)
-    val result = data.index().collect()
+    val result = data.zipWithIndex().collect()
     assert(8 == result.size)
     Range(0, 8).foreach(n => {
       assert(n == result(n)._1)
