@@ -120,12 +120,12 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 
   /**
    * Take an RDD, and transform it into sets of adjacent records.
-   * Each output record will contain <code>size</code> adjacent 
-   * input records.
    *
    * The order of the output RDD is the natural order derived from the
    * input RDD.  It is assumed that this input order is meaningful -
    * otherwise, why would one want to do this?
+   *
+   * @param size The number of input records per output record
    */
   def sliding (size: Int): RDD[List[T]] = {
     // Get all windows of maxSize within each partition
