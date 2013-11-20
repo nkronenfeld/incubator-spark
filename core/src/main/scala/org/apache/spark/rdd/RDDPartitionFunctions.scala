@@ -17,6 +17,7 @@
 
 package org.apache.spark.rdd
 
+import scala.collection.Map
 
 import org.apache.spark.SparkContext._
 
@@ -32,7 +33,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
    *        The index of the partition to isolate.  If the index isn't a legal
    *        one, an IndexOutOfBoundsException will be thrown
    */
-  def getPartition (n: Int) = {
+  def getPartition(n: Int): RDD[T] = {
     def numPartitions = self.partitions.size
 
     if (n<0 || n >= numPartitions) {
@@ -47,35 +48,37 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 
 
   /**
-   * Prepend the given lists to the indicated partitions.
+   * Prepend the given sequences to the indicated partitions.
    * 
-   * @param prefixes The information to prepend.  The keys of this map indicate
-   *                 the partition to which to prepend the information, the
-   *                 values, the information to prepend.
+   * @param prefixes The information to prepend.  The keys of this map indicate the partition to
+   *                 which to prepend the information, the values, the information to prepend.  Any
+   *                 prefixes keyed to a partition number before the first partition (i.e., less
+   *                 than zero) will be placed before the first element of the first partition;
+   *                 similarly, any prefix keyed to a partition number after the last partition
+   *                 will be placed after the last element of the last partition
    */
-  def prepend (prefixes: Map[Int, Seq[T]]): RDD[T] = {
+  def prepend(prefixes: Map[Int, Seq[T]]): RDD[T] = {
     val beforeFirst =
-      prefixes.keys.filter(_ < 0).toList.sortBy(n =>
-        n
-      ).flatMap(n => prefixes(n));
+      prefixes.keys.filter(_ < 0).toSeq.sorted.flatMap(n => prefixes(n));
     val afterLast =
-      prefixes.keys.filter(_ >= self.partitions.size).toList.sortBy(n =>
-        n
-      ).flatMap(n => prefixes(n));
+      prefixes.keys.filter(_ >= self.partitions.size).toSeq.sorted.flatMap(n => prefixes(n));
 
     val broadcastPrefixes = self.context.broadcast(prefixes);
 
     var result = self.mapPartitionsWithIndex((index, i) => {
-      if (broadcastPrefixes.value.contains(index))
+      if (broadcastPrefixes.value.contains(index)) {
         broadcastPrefixes.value(index).iterator ++ i
-      else
+      } else {
         i
+      }
     })
 
-    if (!beforeFirst.isEmpty)
-      result = self.context.parallelize(beforeFirst) union result
-    if (!afterLast.isEmpty)
-      result = result union self.context.parallelize(afterLast)
+    if (!beforeFirst.isEmpty) {
+      result = self.context.parallelize(beforeFirst).union(result)
+    }
+    if (!afterLast.isEmpty) {
+      result = result.union(self.context.parallelize(afterLast))
+    }
 
     result
   }
@@ -83,35 +86,37 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 
 
   /**
-   * Append the given lists to the indicated partitions.
+   * Append the given sequencess to the indicated partitions.
    * 
-   * @param suffixes The information to append.  The keys of this map indicate
-   *                 the partition to which to append the information, the
-   *                 values, the information to append.
+   * @param suffixes The information to append.  The keys of this map indicate the partition to
+   *                 which to append the information, the values, the information to append.  Any
+   *                 suffixes keyed to a partition number before the first partition (i.e., less
+   *                 than zero) will be placed before the first element of the first partition;
+   *                 similarly, any suffix keyed to a partition number after the last partition
+   *                 will be placed after the last element of the last partition
    */
-  def append (suffixes: Map[Int, Seq[T]]): RDD[T] = {
+  def append(suffixes: Map[Int, Seq[T]]): RDD[T] = {
     val beforeFirst =
-      suffixes.keys.filter(_ < 0).toList.sortBy(n =>
-        n
-      ).flatMap(n => suffixes(n));
+      suffixes.keys.filter(_ < 0).toSeq.sorted.flatMap(n => suffixes(n));
     val afterLast =
-      suffixes.keys.filter(_ >= self.partitions.size).toList.sortBy(n =>
-        n
-      ).flatMap(n => suffixes(n));
+      suffixes.keys.filter(_ >= self.partitions.size).toSeq.sorted.flatMap(n => suffixes(n));
 
     val broadcastSuffixes = self.context.broadcast(suffixes);
 
     var result = self.mapPartitionsWithIndex((index, i) => {
-      if (broadcastSuffixes.value.contains(index))
+      if (broadcastSuffixes.value.contains(index)) {
         i ++ broadcastSuffixes.value(index).iterator
-      else
+      } else {
         i
+      }
     })
 
-    if (!beforeFirst.isEmpty)
-      result = self.context.parallelize(beforeFirst) union result
-    if (!afterLast.isEmpty)
-      result = result union self.context.parallelize(afterLast)
+    if (!beforeFirst.isEmpty) {
+      result = self.context.parallelize(beforeFirst).union(result)
+    }
+    if (!afterLast.isEmpty) {
+      result = result.union(self.context.parallelize(afterLast))
+    }
 
     result
   }
@@ -121,62 +126,79 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
   /**
    * Take an RDD, and transform it into sets of adjacent records.
    *
-   * The order of the output RDD is the natural order derived from the
-   * input RDD.  It is assumed that this input order is meaningful -
-   * otherwise, why would one want to do this?
+   * The order of the output RDD is the natural order derived from the input RDD.  It is assumed
+   * that this input order is meaningful - otherwise, why would one want to do this?
+   *
+   * It should be noted that this operation takes two passes.  For efficiency's sake, users
+   * probably want to cache the RDD before using sliding.
    *
    * @param size The number of input records per output record
    */
-  def sliding (size: Int): RDD[List[T]] = {
+  def sliding(size: Int): RDD[Seq[T]] = {
     // Get all windows of maxSize within each partition
-    val intraSplitSets:RDD[List[T]] =
-      self.mapPartitions(_.sliding(size)).map(_.toList)
+    val intraSplitSets:RDD[Seq[T]] =
+      self.mapPartitions(_.sliding(size)).map(_.toSeq)
 
     // Get all windows of size that cross partition boundaries
     val interSplitSets =
       self.mapPartitionsWithIndex((index, i) => {
-        val dupl:(Iterator[T], Iterator[T]) = i.duplicate
-        val firstN:List[T] = dupl._1.take(size-1).toList
-        val lastN:List[T] = dupl._2.scanRight(List[T]())((elt, list) => 
-          if (list.size >= size-1) list else List(elt) ++ list
-        ).next
-        val firstSubs:List[((Int, Int), Map[Int, List[T]])] =
+        val firstN: Seq[T] = Range(0, size-1).flatMap(n => {
+          if (i.hasNext) Seq(i.next) else Seq()
+        })
+        val lastN: Seq[T] = if (i.hasNext) {
+          val lastAttempt: Seq[T] = i.scanRight(Seq[T]())((elt, seq) =>
+            if (seq.size >= size-1) seq else Seq(elt) ++ seq
+          ).next
+          if (lastAttempt.size > size-1) {
+            firstN.slice(firstN.size-(size-1-lastAttempt.size), firstN.size) ++ lastAttempt
+          } else {
+            lastAttempt
+          }
+        } else {
+          firstN
+        }.toSeq
+
+        val firstSubs: Seq[((Int, Int), Map[Int, Seq[T]])] =
           Range(1, size).map(n =>
-            ((index-1, n), Map(1 -> firstN.slice(0, n)))).toList
-        val lastSubs:List[((Int, Int), Map[Int, List[T]])] =
+            ((index-1, n), Map(1 -> firstN.slice(0, n))))
+        val lastSubs:Seq[((Int, Int), Map[Int, Seq[T]])] =
             Range(1, size).map(n =>
-              ((index, n), Map(0 -> lastN.slice(n-1, lastN.size)))).toList
+              ((index, n), Map(0 -> lastN.slice(n-1, lastN.size))))
 
         (firstSubs ++ lastSubs).iterator
       }).groupByKey(1).flatMap(p => {
         val whichCross = p._1._2
-        val subLists:Map[Int, List[T]] = p._2.reduce(_ ++ _)
-        val numElts = subLists.values.map(list => list.size).fold(0)(_+_)
+        val subSequences: Map[Int, Seq[T]] = p._2.reduce(_ ++ _)
+        val numElts = subSequences.values.map(seq => seq.size).fold(0)(_+_)
 
-        if (numElts < size) List()
-        else {
+        if (numElts < size) {
+          Seq()
+        } else {
           // Stuff from previous partition
-          val start:List[T] =
-            if (subLists.contains(0)) subLists(0)
-            else List[T]()
+          val start: Seq[T] =
+            if (subSequences.contains(0)) subSequences(0) else Seq[T]()
           // Stuff from next partition
-          val end:List[T] =
-              if (subLists.contains(1)) subLists(1)
-              else List[T]()
+          val end: Seq[T] =
+              if (subSequences.contains(1)) subSequences(1) else Seq[T]()
 
           // Combine them, and 
-          List((p._1, start ++ end))
+          Seq((p._1, start ++ end))
         }
       })
     // Key each element to the subset to which it should be prepended, and key 
     // the item to be prepended by its order among all elements to be prepended 
-    //to the same partition.
+    // to the same partition.
     .map(p => (p._1._1, (p._1._2, p._2)))
     // Collect all additions to a given partition
     .groupByKey(1)
     // Sort the additions to each partition, and eliminate the key we used to do so
     .map(p => (p._1, p._2.sortBy(_._1).map(_._2)))
     .collect().toMap
+
+
+    // TODO: Bring that whole last calculation down locally, and figure out what to do when
+    // a partition is smaller than size.
+
 
     val intraSplitPartitionedSets =
       new RDDPartitionFunctions(intraSplitSets)
@@ -190,7 +212,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
   /**
    * Take an RDD, and index its records
    */
-  def zipWithIndex (): RDD[(T, Long)] = {
+  def zipWithIndex(): RDD[(T, Long)] = {
     // We work exclusively with immutable indexed sequences in this method; the
     // default seems to be from scala.collection
     import scala.collection.immutable.IndexedSeq
@@ -224,7 +246,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
         Range(0, partition).map(s1 =>
           recordsPerPartition(s1)
         )
-      ).map(_ ++ List(0L)).map(_.reduce(_+_))
+      ).map(_ ++ Seq(0L)).map(_.reduce(_+_))
 
     // broadcast that so everyone can use it
     val broadcastPreviousRecordsPerPartition =

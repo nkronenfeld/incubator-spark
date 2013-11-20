@@ -480,7 +480,7 @@ abstract class RDD[T: ClassManifest](
    *
    * @param size The number of input records per output record
    */
-  def sliding (size: Int): RDD[List[T]] =
+  def sliding (size: Int): RDD[Seq[T]] =
     new RDDPartitionFunctions[T](this).sliding(size)
 
   /**
