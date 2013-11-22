@@ -214,54 +214,40 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 
   /**
    * Take an RDD, and index its records
+   * 
+   * It should be noted that this operation takes two passes.  For efficiency's sake, users
+   * probably want to cache the RDD before using sliding.
    */
   def zipWithIndex(): RDD[(T, Long)] = {
     // We work exclusively with immutable indexed sequences in this method; the
     // default seems to be from scala.collection
     import scala.collection.immutable.IndexedSeq
 
-    // Index records by partition, and record with partition number
-    val partitionIndexedData = self.mapPartitionsWithIndex((partitionIndex, i) => {
-      var recordIndex = 0L
-      i.map(record => {
-        val thisRecordIndex = recordIndex
-        recordIndex = recordIndex + 1L
-        ((partitionIndex, thisRecordIndex), record)
-      })
-    })
-    partitionIndexedData.cache()
+    // Get the number of records per partition
+    val recordsPerPartition = self.mapPartitionsWithIndex((index, i) => {
+      List((index, i.size.toLong)).iterator
+    }).collect().sortBy(_._1)
 
-    // count records per partition
-    val recordsPerPartition:Seq[Long] = partitionIndexedData.map(p => {      
-      val partition = p._1._1
-      Range(0, partition+1).map(n => if (n == partition) 1L else 0L)
-    }).reduce((a, b) => {
-      def addArrays (a: IndexedSeq[Long], b:IndexedSeq[Long]): IndexedSeq[Long] = {
-        val maxIdx = a.size.max(b.size)
-        for (idx <- Range(0, maxIdx)) yield
-          (if (idx < a.size) a(idx) else 0) + (if (idx < b.size) b(idx) else 0)
-      }
-      addArrays(a, b)
-    })
-    // Now get the number of previous records to each partition
-    val previousRecordsByPartition:Seq[Long] =
-      Range(0, recordsPerPartition.size).map(partition =>
-        Range(0, partition).map(s1 =>
-          recordsPerPartition(s1)
-        )
-      ).map(_ ++ Seq(0L)).map(_.reduce(_+_))
-
+    // Get the number of previous records for each partition
+    var previousRecords = 0L
+    val previousRecordsByPartition = recordsPerPartition.map{case (index, num) => {
+      val pr = previousRecords
+      previousRecords = previousRecords + num
+      (index, pr)
+    }}.toMap
     // broadcast that so everyone can use it
-    val broadcastPreviousRecordsPerPartition =
+    val broadcastPreviousRecordsByPartition =
       self.context.broadcast(previousRecordsByPartition)
 
-    // Now, take each record, and add the previous records for its partition to 
-    // its index within its partition
-    partitionIndexedData.map(p => {
-      val previousRecords = broadcastPreviousRecordsPerPartition.value(p._1._1)
-      val indexInPartition = p._1._2
-      val record = p._2
-      (record, previousRecords + indexInPartition)
+    // Index the records of each parition based on the number of records found in 
+    // previous partitions
+    self.mapPartitionsWithIndex((index, i) => {
+      var recordIndex = broadcastPreviousRecordsByPartition.value(index)
+      i.map(datum => {
+        val thisRecordIndex = recordIndex
+        recordIndex = recordIndex + 1L
+        (datum, thisRecordIndex)
+      })
     })
   }
 }
