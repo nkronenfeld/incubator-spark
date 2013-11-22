@@ -67,6 +67,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 
     var result = self.mapPartitionsWithIndex((index, i) => {
       if (broadcastPrefixes.value.contains(index)) {
+        println("Prepending "+broadcastPrefixes.value(index)+" to partition "+index)
         broadcastPrefixes.value(index).iterator ++ i
       } else {
         i
@@ -105,6 +106,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 
     var result = self.mapPartitionsWithIndex((index, i) => {
       if (broadcastSuffixes.value.contains(index)) {
+        println("Appending "+broadcastSuffixes.value(index)+" to partition "+index)
         i ++ broadcastSuffixes.value(index).iterator
       } else {
         i
