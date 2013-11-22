@@ -61,12 +61,25 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
     result.collect()
     println("Done")
 
+    println("Full result:")
+    println(result.toDebugString)
+    println("partition 2 result")
+    println(result.getPartition(2).toDebugString)
+
     assert(4 === result.partitions.size)
 
+    println("Checking partition 0")
     assert(result.getPartition(0).collect().toList === List(0, -1))
+    println("Done checking partition 0")
+    println("Checking partition 1")
     assert(result.getPartition(1).collect().toList === List(0, 0, 0, 0, 1, 2, 3))
+    println("Done checking partition 1")
+    println("Checking partition 2")
     assert(result.getPartition(2).collect().toList === List(1, 1, 4, 5, 6, 7))
+    println("Done checking partition 2")
+    println("Checking partition 3")
     assert(result.getPartition(3).collect().toList === List(2, 0))
+    println("Done checking partition 3")
 
     intercept[IndexOutOfBoundsException] {
       data.getPartition(4)
