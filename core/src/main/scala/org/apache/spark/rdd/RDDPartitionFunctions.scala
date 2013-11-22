@@ -137,10 +137,11 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
   def sliding(size: Int): RDD[Seq[T]] = {
     // Get all windows of maxSize within each partition
     val intraSplitSets:RDD[Seq[T]] =
-      self.mapPartitions(_.sliding(size)).map(_.toSeq)
+      self.mapPartitions(_.sliding(size)).map(_.toSeq).filter(_.size == size)
 
     // Get all windows of size that cross partition boundaries
-    val interSplitSets =
+    // First, calculate the pieces of each partition that might be part of such a window
+    val interSplitParts =
       self.mapPartitionsWithIndex((index, i) => {
         val firstN: Seq[T] = Range(0, size-1).flatMap(n => {
           if (i.hasNext) Seq(i.next) else Seq()
@@ -149,7 +150,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
           val lastAttempt: Seq[T] = i.scanRight(Seq[T]())((elt, seq) =>
             if (seq.size >= size-1) seq else Seq(elt) ++ seq
           ).next
-          if (lastAttempt.size > size-1) {
+          if (lastAttempt.size < size) {
             firstN.slice(firstN.size-(size-1-lastAttempt.size), firstN.size) ++ lastAttempt
           } else {
             lastAttempt
@@ -158,47 +159,49 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
           firstN
         }.toSeq
 
-        val firstSubs: Seq[((Int, Int), Map[Int, Seq[T]])] =
-          Range(1, size).map(n =>
-            ((index-1, n), Map(1 -> firstN.slice(0, n))))
-        val lastSubs:Seq[((Int, Int), Map[Int, Seq[T]])] =
-            Range(1, size).map(n =>
-              ((index, n), Map(0 -> lastN.slice(n-1, lastN.size))))
+        val maxFirstItems = (size+1).min(firstN.size)+1
+        val firstParts = Range(1, maxFirstItems).map(n => {
+            (n, firstN.slice(0, n))
+        })
 
-        (firstSubs ++ lastSubs).iterator
-      }).groupByKey(1).flatMap(p => {
-        val whichCross = p._1._2
-        val subSequences: Map[Int, Seq[T]] = p._2.reduce(_ ++ _)
-        val numElts = subSequences.values.map(seq => seq.size).fold(0)(_+_)
+        val lastSize = lastN.size
+        val maxLastItems = (size+1).min(lastSize)+1
+        val lastParts = Range(1, maxLastItems).map(n => {
+          val items = maxLastItems - n
+          (items, lastN.slice(lastSize-items, lastSize))
+        })
 
-        if (numElts < size) {
-          Seq()
+        List((index, (firstParts, lastParts))).iterator
+      }).collect.toMap
+
+    val numPartitions = self.partitions.size
+    // Recursive function to gobble more items from other partitions
+    // numLeft: the number of items still needed
+    // partition: the partition at which to start looking
+    def getMore (numLeft: Int, partition: Int): Seq[T] = {
+      if (partition >= numPartitions) {
+        Seq[T]()
+      } else {
+        val parts = interSplitParts(partition)._1
+
+        if (parts.size >= numLeft) {
+          parts(numLeft-1)._2
+        } else if (0 == parts.size) {
+          getMore(numLeft, partition+1)
         } else {
-          // Stuff from previous partition
-          val start: Seq[T] =
-            if (subSequences.contains(0)) subSequences(0) else Seq[T]()
-          // Stuff from next partition
-          val end: Seq[T] =
-              if (subSequences.contains(1)) subSequences(1) else Seq[T]()
-
-          // Combine them, and 
-          Seq((p._1, start ++ end))
+          parts.last._2 ++ getMore(numLeft - parts.size, partition+1)
         }
-      })
-    // Key each element to the subset to which it should be prepended, and key 
-    // the item to be prepended by its order among all elements to be prepended 
-    // to the same partition.
-    .map(p => (p._1._1, (p._1._2, p._2)))
-    // Collect all additions to a given partition
-    .groupByKey(1)
-    // Sort the additions to each partition, and eliminate the key we used to do so
-    .map(p => (p._1, p._2.sortBy(_._1).map(_._2)))
-    .collect().toMap
+      }
+    }
+    // Put together our pieces into full windows.
+    val interSplitSets = Range(0, numPartitions-1).map(partition => {
+      val parts = interSplitParts(partition)._2
 
-
-    // TODO: Bring that whole last calculation down locally, and figure out what to do when
-    // a partition is smaller than size.
-
+      (partition, parts.map{case (n, items) => {
+        val rest = getMore(size-n, partition+1)
+        items ++ rest
+      }}.filter(_.size == size))
+    }).toMap
 
     val intraSplitPartitionedSets =
       new RDDPartitionFunctions(intraSplitSets)

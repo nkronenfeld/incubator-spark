@@ -116,6 +116,31 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
                                   List(5, 6, 7)))
   }
 
+  test("sliding with uneven partitions") {
+    val dataSet = List(sc.makeRDD(List[Int](), 1),
+                       sc.makeRDD(List[Int](0, 1, 2, 3, 4), 1),
+                       sc.makeRDD(List[Int](), 1),
+                       sc.makeRDD(List[Int](), 1),
+                       sc.makeRDD(List[Int](), 1),
+                       sc.makeRDD(List[Int](), 1),
+                       sc.makeRDD(List[Int](5, 6, 7), 1),
+                       sc.makeRDD(List[Int](8, 9), 1),
+                       sc.makeRDD(List[Int](10), 1),
+                       sc.makeRDD(List[Int](), 1))
+    val data = dataSet.reduce((a, b) => a.union(b))
+
+    val result = data.sliding(3).collect()
+    assert(result.toList === List(List(0, 1, 2),
+                                  List(1, 2, 3),
+                                  List(2, 3, 4),
+                                  List(3, 4, 5),
+                                  List(4, 5, 6),
+                                  List(5, 6, 7),
+                                  List(6, 7, 8),
+                                  List(7, 8, 9),
+                                  List(8, 9, 10)))
+  }
+
   test("zipWithIndex") {
     val data = sc.makeRDD(Range(0, 8), 2)
     val result = data.zipWithIndex().collect()
