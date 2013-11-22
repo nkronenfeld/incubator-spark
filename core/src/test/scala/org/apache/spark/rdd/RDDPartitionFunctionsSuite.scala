@@ -46,12 +46,20 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
 
   test("prepend") {
     val data = sc.makeRDD(Range(0, 8), 2)
+
+    assert(2 == data.partitions.size)
+    assert(data.getPartition(0).collect().toList == List(0, 1, 2, 3))
+    assert(data.getPartition(1).collect().toList == List(4, 5, 6, 7))
+
     val result = data.prepend(Map(-2 -> List(0),
                                   -1 -> List(-1),
                                   0 -> List(0, 0, 0),
                                   1 -> List(1, 1),
                                   2 -> List(2),
                                   3 -> List(0)))
+    println("Running prepend")
+    result.collect()
+    println("Done")
 
     assert(4 === result.partitions.size)
 
@@ -67,9 +75,19 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
 
   test("prepend with missing partitions") {
     val data = sc.makeRDD(Range(0, 16), 4)
+
+    assert(4 == data.partitions.size)
+    assert(data.getPartition(0).collect().toList == List(0, 1, 2, 3))
+    assert(data.getPartition(1).collect().toList == List(4, 5, 6, 7))
+    assert(data.getPartition(2).collect().toList == List(8, 9, 10, 11))
+    assert(data.getPartition(3).collect().toList == List(12, 13, 14, 15))
+
     val result = data.prepend(Map(1 -> List(16, 17, 18),
                                   3 -> List(19, 20, 21),
                                   5 -> List(22, 23, 24)))
+    println("Running prepend")
+    result.collect()
+    println("Done")
 
     assert(result.getPartition(0).collect().toList == List(0, 1, 2, 3))
     assert(result.getPartition(1).collect().toList == List(16, 17, 18, 4, 5, 6, 7))
@@ -84,12 +102,20 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
 
   test("append") {
     val data = sc.makeRDD(Range(0, 8), 2)
+
+    assert(2 == data.partitions.size)
+    assert(data.getPartition(0).collect().toList == List(0, 1, 2, 3))
+    assert(data.getPartition(1).collect().toList == List(4, 5, 6, 7))
+
     val result = data.append(Map(-2 -> List(0),
                                  -1 -> List(-1),
                                  0 -> List(0, 0, 0),
                                  1 -> List(1, 1),
                                  2 -> List(2),
                                  3 -> List(0)))
+    println("Running append")
+    result.collect()
+    println("Done")
 
     assert(4 === result.partitions.size)
 
@@ -105,9 +131,19 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
 
   test("append with missing partitions") {
     val data = sc.makeRDD(Range(0, 16), 4)
+
+    assert(4 == data.partitions.size)
+    assert(data.getPartition(0).collect().toList == List(0, 1, 2, 3))
+    assert(data.getPartition(1).collect().toList == List(4, 5, 6, 7))
+    assert(data.getPartition(2).collect().toList == List(8, 9, 10, 11))
+    assert(data.getPartition(3).collect().toList == List(12, 13, 14, 15))
+
     val result = data.append(Map(0 -> List(16, 17, 18),
                                  2 -> List(19, 20, 21),
                                  5 -> List(22, 23, 24)))
+    println("Running append")
+    result.collect()
+    println("Done")
 
     assert(result.getPartition(0).collect().toList == List(0, 1, 2, 3, 16, 17, 18))
     assert(result.getPartition(1).collect().toList == List(4, 5, 6, 7))

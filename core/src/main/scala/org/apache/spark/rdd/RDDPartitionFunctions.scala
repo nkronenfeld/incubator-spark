@@ -67,6 +67,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
     prefixes.foreach(pf => println("\t"+pf))
     val broadcastPrefixes = self.context.broadcast(prefixes);
 
+    println("Processing "+self.partitions.size+" partitions")
     var result = self.mapPartitionsWithIndex((index, i) => {
       println("Processing partition "+index)
       if (broadcastPrefixes.value.contains(index)) {
@@ -109,6 +110,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 
     val broadcastSuffixes = self.context.broadcast(suffixes);
 
+    println("Processing "+self.partitions.size+" partitions")
     var result = self.mapPartitionsWithIndex((index, i) => {
       println("Processing partition "+index)
       if (broadcastSuffixes.value.contains(index)) {
