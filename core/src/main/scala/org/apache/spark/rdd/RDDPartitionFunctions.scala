@@ -63,15 +63,10 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
     val afterLast =
       prefixes.keys.filter(_ >= self.partitions.size).toSeq.sorted.flatMap(n => prefixes(n));
 
-    println("Prepending the following prefixes:")
-    prefixes.foreach(pf => println("\t"+pf))
     val broadcastPrefixes = self.context.broadcast(prefixes);
 
-    println("Processing "+self.partitions.size+" partitions" )
     var result = self.mapPartitionsWithIndex((index, i) => {
-      println("Processing partition "+index)
       if (broadcastPrefixes.value.contains(index)) {
-        println("Prepending "+broadcastPrefixes.value(index)+" to partition "+index)
         broadcastPrefixes.value(index).iterator ++ i
       } else {
         i
@@ -101,8 +96,6 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
    *                 will be placed after the last element of the last partition
    */
   def append(suffixes: Map[Int, Seq[T]]): RDD[T] = {
-    println("Appending the following prefixes:")
-    suffixes.foreach(sf => println("\t"+sf))
     val beforeFirst =
       suffixes.keys.filter(_ < 0).toSeq.sorted.flatMap(n => suffixes(n));
     val afterLast =
@@ -110,11 +103,8 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
 
     val broadcastSuffixes = self.context.broadcast(suffixes);
 
-    println("Processing "+self.partitions.size+" partitions")
     var result = self.mapPartitionsWithIndex((index, i) => {
-      println("Processing partition "+index)
       if (broadcastSuffixes.value.contains(index)) {
-        println("Appending "+broadcastSuffixes.value(index)+" to partition "+index)
         i ++ broadcastSuffixes.value(index).iterator
       } else {
         i

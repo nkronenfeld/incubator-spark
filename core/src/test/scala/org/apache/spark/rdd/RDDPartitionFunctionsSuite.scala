@@ -57,29 +57,14 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
                                   1 -> List(1, 1),
                                   2 -> List(2),
                                   3 -> List(0)))
-    println("Running prepend")
     result.collect()
-    println("Done")
-
-    println("Full result:")
-    println(result.toDebugString)
-    println("partition 2 result")
-    println(result.getPartition(2).toDebugString)
 
     assert(4 === result.partitions.size)
 
-    println("Checking partition 0")
     assert(result.getPartition(0).collect().toList === List(0, -1))
-    println("Done checking partition 0")
-    println("Checking partition 1")
     assert(result.getPartition(1).collect().toList === List(0, 0, 0, 0, 1, 2, 3))
-    println("Done checking partition 1")
-    println("Checking partition 2")
     assert(result.getPartition(2).collect().toList === List(1, 1, 4, 5, 6, 7))
-    println("Done checking partition 2")
-    println("Checking partition 3")
     assert(result.getPartition(3).collect().toList === List(2, 0))
-    println("Done checking partition 3")
 
     intercept[IndexOutOfBoundsException] {
       data.getPartition(4)
@@ -98,9 +83,7 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
     val result = data.prepend(Map(1 -> List(16, 17, 18),
                                   3 -> List(19, 20, 21),
                                   5 -> List(22, 23, 24)))
-    println("Running prepend")
     result.collect()
-    println("Done")
 
     assert(result.getPartition(0).collect().toList == List(0, 1, 2, 3))
     assert(result.getPartition(1).collect().toList == List(16, 17, 18, 4, 5, 6, 7))
@@ -126,9 +109,7 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
                                  1 -> List(1, 1),
                                  2 -> List(2),
                                  3 -> List(0)))
-    println("Running append")
     result.collect()
-    println("Done")
 
     assert(4 === result.partitions.size)
 
@@ -154,9 +135,7 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
     val result = data.append(Map(0 -> List(16, 17, 18),
                                  2 -> List(19, 20, 21),
                                  5 -> List(22, 23, 24)))
-    println("Running append")
     result.collect()
-    println("Done")
 
     assert(result.getPartition(0).collect().toList == List(0, 1, 2, 3, 16, 17, 18))
     assert(result.getPartition(1).collect().toList == List(4, 5, 6, 7))
