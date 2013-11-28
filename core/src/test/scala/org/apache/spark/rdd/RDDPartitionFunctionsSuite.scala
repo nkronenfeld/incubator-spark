@@ -31,7 +31,7 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
     assert(p0.toList === List(0, 1, 2, 3))
 
     val p1 = data.getPartition(1).collect()
-    assert(p1.toList == List(4, 5, 6, 7))
+    assert(p1.toList === List(4, 5, 6, 7))
 
     intercept[IndexOutOfBoundsException] {
       data.getPartition(2)
@@ -47,105 +47,93 @@ class RDDPartitionFunctionsSuite extends FunSuite with SharedSparkContext {
   test("prepend") {
     val data = sc.makeRDD(Range(0, 8), 2)
 
-    assert(2 == data.partitions.size)
-    assert(data.getPartition(0).collect().toList == List(0, 1, 2, 3))
-    assert(data.getPartition(1).collect().toList == List(4, 5, 6, 7))
+    // Make sure our input data starts the way we expect
+    assert(2 === data.partitions.size)
+    assert(data.getPartition(0).collect().toList === List(0, 1, 2, 3))
+    assert(data.getPartition(1).collect().toList === List(4, 5, 6, 7))
 
+    // Make sure prepend does what we expect
     val result = data.prepend(Map(-2 -> List(0),
                                   -1 -> List(-1),
                                   0 -> List(0, 0, 0),
                                   1 -> List(1, 1),
                                   2 -> List(2),
                                   3 -> List(0)))
-    result.collect()
 
     assert(4 === result.partitions.size)
-
     assert(result.getPartition(0).collect().toList === List(0, -1))
     assert(result.getPartition(1).collect().toList === List(0, 0, 0, 0, 1, 2, 3))
     assert(result.getPartition(2).collect().toList === List(1, 1, 4, 5, 6, 7))
     assert(result.getPartition(3).collect().toList === List(2, 0))
-
-    intercept[IndexOutOfBoundsException] {
-      data.getPartition(4)
-    }
   }
 
   test("prepend with missing partitions") {
     val data = sc.makeRDD(Range(0, 16), 4)
 
-    assert(4 == data.partitions.size)
-    assert(data.getPartition(0).collect().toList == List(0, 1, 2, 3))
-    assert(data.getPartition(1).collect().toList == List(4, 5, 6, 7))
-    assert(data.getPartition(2).collect().toList == List(8, 9, 10, 11))
-    assert(data.getPartition(3).collect().toList == List(12, 13, 14, 15))
+    // Make sure our input data starts the way we expect
+    assert(4 === data.partitions.size)
+    assert(data.getPartition(0).collect().toList === List(0, 1, 2, 3))
+    assert(data.getPartition(1).collect().toList === List(4, 5, 6, 7))
+    assert(data.getPartition(2).collect().toList === List(8, 9, 10, 11))
+    assert(data.getPartition(3).collect().toList === List(12, 13, 14, 15))
 
+    // Make sure prepend does what we expect
     val result = data.prepend(Map(1 -> List(16, 17, 18),
                                   3 -> List(19, 20, 21),
                                   5 -> List(22, 23, 24)))
-    result.collect()
 
-    assert(result.getPartition(0).collect().toList == List(0, 1, 2, 3))
-    assert(result.getPartition(1).collect().toList == List(16, 17, 18, 4, 5, 6, 7))
-    assert(result.getPartition(2).collect().toList == List(8, 9, 10, 11))
-    assert(result.getPartition(3).collect().toList == List(19, 20, 21, 12, 13, 14, 15))
-    assert(result.getPartition(4).collect().toList == List(22, 23, 24))
-
-    intercept[IndexOutOfBoundsException] {
-      data.getPartition(5)
-    }
+    assert(5 === result.partitions.size)
+    assert(result.getPartition(0).collect().toList === List(0, 1, 2, 3))
+    assert(result.getPartition(1).collect().toList === List(16, 17, 18, 4, 5, 6, 7))
+    assert(result.getPartition(2).collect().toList === List(8, 9, 10, 11))
+    assert(result.getPartition(3).collect().toList === List(19, 20, 21, 12, 13, 14, 15))
+    assert(result.getPartition(4).collect().toList === List(22, 23, 24))
   }
 
   test("append") {
     val data = sc.makeRDD(Range(0, 8), 2)
 
-    assert(2 == data.partitions.size)
-    assert(data.getPartition(0).collect().toList == List(0, 1, 2, 3))
-    assert(data.getPartition(1).collect().toList == List(4, 5, 6, 7))
+    // Make sure our input data starts the way we expect
+    assert(2 === data.partitions.size)
+    assert(data.getPartition(0).collect().toList === List(0, 1, 2, 3))
+    assert(data.getPartition(1).collect().toList === List(4, 5, 6, 7))
 
+    // Make sure append does what we expect
     val result = data.append(Map(-2 -> List(0),
                                  -1 -> List(-1),
                                  0 -> List(0, 0, 0),
                                  1 -> List(1, 1),
                                  2 -> List(2),
                                  3 -> List(0)))
-    result.collect()
 
     assert(4 === result.partitions.size)
-
     assert(result.getPartition(0).collect().toList === List(0, -1))
     assert(result.getPartition(1).collect().toList === List(0, 1, 2, 3, 0, 0, 0))
     assert(result.getPartition(2).collect().toList === List(4, 5, 6, 7, 1, 1))
     assert(result.getPartition(3).collect().toList === List(2, 0))
-
-    intercept[IndexOutOfBoundsException] {
-      data.getPartition(5)
-    }
   }
 
   test("append with missing partitions") {
     val data = sc.makeRDD(Range(0, 16), 4)
 
-    assert(4 == data.partitions.size)
-    assert(data.getPartition(0).collect().toList == List(0, 1, 2, 3))
-    assert(data.getPartition(1).collect().toList == List(4, 5, 6, 7))
-    assert(data.getPartition(2).collect().toList == List(8, 9, 10, 11))
-    assert(data.getPartition(3).collect().toList == List(12, 13, 14, 15))
+    // Make sure our input data starts the way we expect
+    assert(4 === data.partitions.size)
+    assert(data.getPartition(0).collect().toList === List(0, 1, 2, 3))
+    assert(data.getPartition(1).collect().toList === List(4, 5, 6, 7))
+    assert(data.getPartition(2).collect().toList === List(8, 9, 10, 11))
+    assert(data.getPartition(3).collect().toList === List(12, 13, 14, 15))
 
+    // Make sure append does what we expect
     val result = data.append(Map(0 -> List(16, 17, 18),
                                  2 -> List(19, 20, 21),
                                  5 -> List(22, 23, 24)))
-    result.collect()
 
-    assert(result.getPartition(0).collect().toList == List(0, 1, 2, 3, 16, 17, 18))
-    assert(result.getPartition(1).collect().toList == List(4, 5, 6, 7))
-    assert(result.getPartition(2).collect().toList == List(8, 9, 10, 11, 19, 20, 21))
-    assert(result.getPartition(3).collect().toList == List(12, 13, 14, 15))
-    assert(result.getPartition(4).collect().toList == List(22, 23, 24))
-
-    intercept[IndexOutOfBoundsException] {
-      data.getPartition(5)
-    }
+    assert(5 === result.partitions.size)
+    assert(result.getPartition(0).collect().toList === List(0, 1, 2, 3, 16, 17, 18))
+    assert(result.getPartition(1).collect().toList === List(4, 5, 6, 7))
+    assert(result.getPartition(2).collect().toList === List(8, 9, 10, 11, 19, 20, 21))
+    assert(result.getPartition(3).collect().toList === List(12, 13, 14, 15))
+    assert(result.getPartition(4).collect().toList === List(22, 23, 24))
   }
 
   test("sliding") {

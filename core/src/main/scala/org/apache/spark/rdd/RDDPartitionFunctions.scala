@@ -61,7 +61,7 @@ trait RDDPartitionFunctions[T] {
    *                 similarly, any prefix keyed to a partition number after the last partition
    *                 will be placed after the last element of the last partition
    */
-  def prepend[TT >: T : ClassManifest] (prefixes: Map[Int, Seq[TT]]): RDD[TT] = {
+  def prepend[TT >: T : ClassManifest](prefixes: Map[Int, Seq[TT]]): RDD[TT] = {
     val beforeFirst =
       prefixes.keys.filter(_ < 0).toSeq.sorted.flatMap(n => prefixes(n));
     val afterLast =
@@ -99,7 +99,7 @@ trait RDDPartitionFunctions[T] {
    *                 similarly, any suffix keyed to a partition number after the last partition
    *                 will be placed after the last element of the last partition
    */
-  def append[TT >: T : ClassManifest] (suffixes: Map[Int, Seq[TT]]): RDD[TT] = {
+  def append[TT >: T : ClassManifest](suffixes: Map[Int, Seq[TT]]): RDD[TT] = {
     val beforeFirst =
       suffixes.keys.filter(_ < 0).toSeq.sorted.flatMap(n => suffixes(n));
     val afterLast =
@@ -147,10 +147,10 @@ trait RDDPartitionFunctions[T] {
     // First, calculate the pieces of each partition that might be part of such a window
     val interSplitParts =
       self.mapPartitionsWithIndex((index, i) => {
-        val firstN: Seq[T] = Range(0, size-1).flatMap(n => {
+        val firstN = Range(0, size-1).flatMap(n => {
           if (i.hasNext) Seq(i.next) else Seq()
         })
-        val lastN: Seq[T] = if (i.hasNext) {
+        val lastN = if (i.hasNext) {
           val lastAttempt: Seq[T] = i.scanRight(Seq[T]())((elt, seq) =>
             if (seq.size >= size-1) seq else Seq(elt) ++ seq
           ).next
@@ -182,7 +182,7 @@ trait RDDPartitionFunctions[T] {
     // Recursive function to gobble more items from other partitions
     // numLeft: the number of items still needed
     // partition: the partition at which to start looking
-    def getMore (numLeft: Int, partition: Int): Seq[T] = {
+    def getMore(numLeft: Int, partition: Int): Seq[T] = {
       if (partition >= numPartitions) {
         Seq[T]()
       } else {
