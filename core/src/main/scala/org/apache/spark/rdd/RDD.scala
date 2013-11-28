@@ -73,7 +73,11 @@ import org.apache.spark._
 abstract class RDD[T: ClassManifest](
     @transient private var sc: SparkContext,
     @transient private var deps: Seq[Dependency[_]]
-  ) extends Serializable with Logging {
+  ) extends Serializable with RDDPartitionFunctions[T] with Logging {
+  // Definition of manifest for RDD traits - traits that add further methods to RDDs
+  // At the moment, there is only RDDPartitionFunctions, but that list should grow, thereby
+  // shrinking this class to minimal needed methods.
+  def manifest = implicitly[ClassManifest[T]]
 
   /** Construct an RDD with just a one-to-one dependency on one parent */
   def this(@transient oneParent: RDD[_]) =
@@ -432,62 +436,6 @@ abstract class RDD[T: ClassManifest](
     f: (Int, Iterator[T]) => Iterator[U],
     preservesPartitioning: Boolean = false): RDD[U] =
     new MapPartitionsWithIndexRDD(this, sc.clean(f), preservesPartitioning)
-
-  // These next few methods all work with RDDs on a 
-  // partition-by-partition basis.  The method bodies are somewhat 
-  // substantial (at least some of them), so they have been broken 
-  // out into their own file.
-  // Ideally, we would break these methods out into a trait that 
-  // would get included in RDD, but the inability to generify traits
-  // using type parameters with context bounds (i.e., [T: ClassManifest])
-  // So, instead, we just use a quick facade pattern.
-  /**
-   * Isolate a single partition from our RDD.
-   *
-   * @param n
-   *        The index of the partition to isolate.  If the index isn't a legal
-   *        one, an IndexOutOfBoundsException will be thrown
-   */
-  def getPartition (n: Int) =
-    new RDDPartitionFunctions[T](this).getPartition(n)
-
-  /**
-   * Prepend the given lists to the indicated partitions.
-   * 
-   * @param prefixes The information to prepend.  The keys of this map indicate
-   *                 the partition to which to prepend the information, the
-   *                 values, the information to prepend.
-   */
-  def prepend (prefixes: ImmutableMap[Int, Seq[T]]): RDD[T] =
-    new RDDPartitionFunctions[T](this).prepend(prefixes)
-
-  /**
-   * Append the given lists to the indicated partitions.
-   * 
-   * @param suffixes The information to append.  The keys of this map indicate
-   *                 the partition to which to append the information, the
-   *                 values, the information to append.
-   */
-  def append (suffixes: ImmutableMap[Int, Seq[T]]): RDD[T] =
-    new RDDPartitionFunctions[T](this).append(suffixes)
-
-  /**
-   * Take an RDD, and transform it into sets of adjacent records.
-   *
-   * The order of the output RDD is the natural order derived from the
-   * input RDD.  It is assumed that this input order is meaningful -
-   * otherwise, why would one want to do this?
-   *
-   * @param size The number of input records per output record
-   */
-  def sliding (size: Int): RDD[Seq[T]] =
-    new RDDPartitionFunctions[T](this).sliding(size)
-
-  /**
-   * Take an RDD, and index its records
-   */
-  def zipWithIndex (): RDD[(T, Long)] =
-    new RDDPartitionFunctions[T](this).zipWithIndex()
 
   /**
    * Maps f over this RDD, where f takes an additional parameter of type A.  This

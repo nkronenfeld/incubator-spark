@@ -25,7 +25,11 @@ import org.apache.spark.SparkContext._
  * Extra functions available on all RDDs that work on a partition-by-partition
  * basis.
  */
-class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
+trait RDDPartitionFunctions[T] {
+  self: RDD[T] => 
+
+  implicit def manifest: ClassManifest[T]
+
   /**
    * Isolate a single partition from our RDD.
    *
@@ -57,7 +61,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
    *                 similarly, any prefix keyed to a partition number after the last partition
    *                 will be placed after the last element of the last partition
    */
-  def prepend(prefixes: Map[Int, Seq[T]]): RDD[T] = {
+  def prepend[TT >: T : ClassManifest] (prefixes: Map[Int, Seq[TT]]): RDD[TT] = {
     val beforeFirst =
       prefixes.keys.filter(_ < 0).toSeq.sorted.flatMap(n => prefixes(n));
     val afterLast =
@@ -95,7 +99,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
    *                 similarly, any suffix keyed to a partition number after the last partition
    *                 will be placed after the last element of the last partition
    */
-  def append(suffixes: Map[Int, Seq[T]]): RDD[T] = {
+  def append[TT >: T : ClassManifest] (suffixes: Map[Int, Seq[TT]]): RDD[TT] = {
     val beforeFirst =
       suffixes.keys.filter(_ < 0).toSeq.sorted.flatMap(n => suffixes(n));
     val afterLast =
@@ -203,10 +207,7 @@ class RDDPartitionFunctions[T: ClassManifest] (self: RDD[T]) {
       }}.filter(_.size == size))
     }).toMap
 
-    val intraSplitPartitionedSets =
-      new RDDPartitionFunctions(intraSplitSets)
-
-    intraSplitPartitionedSets.append(interSplitSets)
+    intraSplitSets.append(interSplitSets)
   }
 
 
